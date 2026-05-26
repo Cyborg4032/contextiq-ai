@@ -1,0 +1,27 @@
+# Node
+node_modules/
+
+# Python
+venv/
+.venv/
+__pycache__/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+
+# VSCode
+.vscode/
+
+# Large files
+*.zip
+*.mp4
+*.mov
+*.exe
+*.bin
+*.pt
+*.pth
+*.onnx

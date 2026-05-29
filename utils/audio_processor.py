@@ -31,12 +31,26 @@ def download_youtube_audio(url: str) -> str:
     return filename
 
 
-def convert_to_wav(input_path: str) -> str:
-    """Convert any audio/video file to WAV format."""
+import subprocess
+
+def convert_to_wav(input_path):
     output_path = os.path.splitext(input_path)[0] + "_converted.wav"
-    audio = AudioSegment.from_file(input_path)
-    audio = audio.set_channels(1).set_frame_rate(16000)
-    audio.export(output_path, format="wav")
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            input_path,
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            output_path,
+        ],
+        check=True,
+    )
+
     return output_path
 
 

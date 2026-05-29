@@ -54,42 +54,60 @@ def convert_to_wav(input_path):
     return output_path
 
 
-def chunk_audio(wav_path: str, chunk_minutes: int = CHUNK_MINUTES) -> list:
-    """
-    Split WAV into chunks and export each as MP3 at 32kbps mono.
+def chunk_audio(wav_path, chunk_minutes=5):
+    chunk_length = chunk_minutes * 60
+    chunks = []
 
-    Why MP3 instead of WAV:
-      - WAV  @ 16kHz mono = ~1.9 MB/min  → 10 min chunk = ~115 MB  (over Groq 25MB limit)
-      - MP3  @ 32kbps mono = ~0.24 MB/min → 5 min chunk  = ~1.2 MB  (well under limit)
+    import subprocess
 
-    Whisper accuracy is unaffected at 32kbps for speech.
-    """
-    audio    = AudioSegment.from_wav(wav_path)
-    audio    = audio.set_channels(1).set_frame_rate(16000)  # normalise
-    chunk_ms = chunk_minutes * 60 * 1000
-    chunks   = []
+    duration = float(
+        subprocess.check_output(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                wav_path,
+            ]
+        )
+        .decode()
+        .strip()
+    )
 
-    total = (len(audio) + chunk_ms - 1) // chunk_ms
-    print(f"  Splitting into {total} chunk(s) of {chunk_minutes} min each...")
+    total_chunks = int(duration // chunk_length) + 1
 
-    for i, start in enumerate(range(0, len(audio), chunk_ms)):
-        chunk      = audio[start : start + chunk_ms]
-        chunk_path = f"{wav_path}_chunk_{i}.mp3"          # ← MP3 not WAV
+    for i in range(total_chunks):
+        start = i * chunk_length
+        output = f"{wav_path}_chunk_{i}.mp3"
 
-        chunk.export(
-            chunk_path,
-            format="mp3",
-            parameters=["-ac", "1",        # mono
-                        "-ar", "16000",    # 16kHz
-                        "-b:a", "32k"],    # 32kbps — tiny file, fine for speech
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                wav_path,
+                "-ss",
+                str(start),
+                "-t",
+                str(chunk_length),
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-b:a",
+                "32k",
+                output,
+            ],
+            check=True,
         )
 
-        size_mb = os.path.getsize(chunk_path) / (1024 * 1024)
-        print(f"  Chunk {i+1}/{total}: {size_mb:.1f} MB")
-        chunks.append(chunk_path)
+        if os.path.exists(output):
+            chunks.append(output)
 
     return chunks
-
 
 def process_input(source: str) -> list:
     if source.startswith("http://") or source.startswith("https://"):

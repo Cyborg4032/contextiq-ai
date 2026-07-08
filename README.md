@@ -206,7 +206,7 @@ This project is licensed under the MIT License.
 
 ##  Author
 
-Built with ❤️ by [Cyborg4032](https://github.com/Cyborg4032?utm_source=chatgpt.com)
+Built with ❤️ by [sourav-malhotra]
 
 ---
 

@@ -1,45 +1,45 @@
 # ── ContextIQ ── requirements.txt ──────────────────────────────────
-# Python >= 3.10 recommended
+# Python 3.11 (see runtime.txt)
+# Trimmed to only what app.py / main.py / core / utils actually import.
+# Removed: openai-whisper, torch, torchaudio, deep-translator, reportlab,
+#          fpdf2, streamlit-extras, tiktoken, ffmpeg-python
+#          -> none of these are imported anywhere in the codebase, and
+#             torch/whisper alone add 2-3GB+, which is almost certainly
+#             why builds were failing/timing out on Streamlit Cloud.
+# Added:   groq, langchain-chroma
+#          -> imported directly (core/transcriber.py, core/vector_store.py)
+#             but were missing from this file entirely, so any clean
+#             install (any host) would crash on import before the app
+#             even starts.
 
-# ── Audio / Video acquisition ─────────────────────────────────────────────────
-yt-dlp>=2024.4.9                  # Download audio from YouTube URLs
-pydub
-ffmpeg-python>=0.2.0              # FFmpeg bindings (FFmpeg binary must be installed separately)
+# ── Audio / Video acquisition ──────────────────────────────────────
+yt-dlp>=2024.4.9
+pydub>=0.25.1
 
-# ── Speech-to-Text (local Whisper) ────────────────────────────────────────────
-openai-whisper>=20231117          # OpenAI Whisper (runs locally)
-torch>=2.2.0                      # PyTorch backend for Whisper
-torchaudio>=2.2.0                 # Audio utilities for PyTorch
+# ── Speech-to-Text (remote APIs) ───────────────────────────────────
+groq>=1.2.0                       # Groq Whisper API client (English)
+requests>=2.32.0                  # Sarvam AI STT (Hinglish) via raw HTTP
 
-# ── Translation (Hindi → English) ─────────────────────────────────────────────
-deep-translator>=1.11.4           # Lightweight translation wrapper (Google backend)
-
-# ── LLM Orchestration — LangChain LCEL + Mistral ──────────────────────────────
+# ── LLM Orchestration — LangChain LCEL + Mistral ───────────────────
 langchain>=0.2.0
 langchain-core>=0.2.0
 langchain-community>=0.2.0
-langchain-mistralai>=0.1.0        # LangChain wrapper for Mistral API
-mistralai>=0.4.0                  # Official Mistral Python client
+langchain-text-splitters>=0.2.0
+langchain-mistralai>=0.1.0
+mistralai>=0.4.0
 
-# ── RAG Pipeline ──────────────────────────────────────────────────────────────
-chromadb>=0.5.0                   # Local vector store
-sentence-transformers>=3.0.0      # HuggingFace embedding models
-langchain-huggingface>=0.0.3      # LangChain ↔ HuggingFace embeddings bridge
-huggingface-hub>=0.23.0           # Model downloading from HuggingFace Hub
-tiktoken>=0.7.0                   # Token counting for text splitting
+# ── RAG Pipeline ────────────────────────────────────────────────────
+langchain-chroma>=0.1.4           # Chroma wrapper used in core/vector_store.py
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+langchain-huggingface>=0.0.3
+huggingface-hub>=0.23.0
 
-# ── Streamlit UI ──────────────────────────────────────────────────────────────
+# ── Streamlit UI ────────────────────────────────────────────────────
 streamlit>=1.35.0
-streamlit-extras>=0.4.0           # Additional Streamlit widgets / utilities
-watchdog>=4.0.0                   # File-change watcher (improves Streamlit hot-reload)
+watchdog>=4.0.0
 
-# ── PDF & TXT Export ──────────────────────────────────────────────────────────
-reportlab>=4.2.0                  # PDF generation
-fpdf2>=2.7.9                      # Lightweight alternative PDF library
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
-python-dotenv>=1.0.0              # Load API keys from .env
+# ── Utilities ───────────────────────────────────────────────────────
+python-dotenv>=1.0.0
 numpy>=1.26.0
-tqdm>=4.66.0                      # Progress bars
-requests>=2.32.0
-python-dotenv
+tqdm>=4.66.0

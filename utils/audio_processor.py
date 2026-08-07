@@ -24,11 +24,39 @@ def download_youtube_audio(url: str) -> str:
         ],
         "quiet": True,
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info     = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
-        filename = filename.replace(".webm", ".wav").replace(".m4a", ".wav")
-    return filename
+
+    # YouTube increasingly blocks unauthenticated requests with a
+    # "Sign in to confirm you're not a bot" error. Two opt-in ways to
+    # supply auth, controlled by env vars (neither is required):
+    #
+    #   YTDLP_COOKIES_FILE      -> path to a cookies.txt (works locally
+    #                              AND on a server like Render, since
+    #                              there's no browser there)
+    #   YTDLP_COOKIES_BROWSER   -> e.g. "chrome", "edge", "firefox"
+    #                              (local dev only — reads your logged-in
+    #                              browser session directly)
+    cookies_file    = os.getenv("YTDLP_COOKIES_FILE")
+    cookies_browser = os.getenv("YTDLP_COOKIES_BROWSER")
+    if cookies_file:
+        ydl_opts["cookiefile"] = cookies_file
+    elif cookies_browser:
+        ydl_opts["cookiesfrombrowser"] = (cookies_browser,)
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info     = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            filename = filename.replace(".webm", ".wav").replace(".m4a", ".wav")
+        return filename
+    except yt_dlp.utils.DownloadError as e:
+        if "Sign in to confirm" in str(e):
+            raise RuntimeError(
+                "YouTube is blocking this download and requires login cookies. "
+                "Set YTDLP_COOKIES_BROWSER=chrome (or edge/firefox) in your .env "
+                "for local runs, or YTDLP_COOKIES_FILE=/path/to/cookies.txt for "
+                "a server deployment. See README for details."
+            ) from e
+        raise
 
 
 def convert_to_wav(input_path: str) -> str:
@@ -88,4 +116,25 @@ def process_input(source: str) -> list:
     print("Chunking audio...")
     chunks = chunk_audio(wav_path)
     print(f"Audio ready — {len(chunks)} chunk(s) created.")
+
+    # Source WAV is fully chunked now — drop it so disk doesn't fill up
+    # on a long-lived deployment (each run previously left this behind).
+    if os.path.exists(wav_path):
+        os.remove(wav_path)
+
     return chunks
+
+
+def cleanup_chunks(chunks: list) -> None:
+    """
+    Remove chunk MP3s (and any leftover sub-piece files from the
+    transcriber) after transcription is done. Call this once you have
+    the transcript in hand — chunks are no longer needed after that.
+    """
+    for chunk_path in chunks:
+        for candidate in [chunk_path]:
+            if os.path.exists(candidate):
+                try:
+                    os.remove(candidate)
+                except OSError as e:
+                    print(f"  Warning: could not remove {candidate}: {e}")

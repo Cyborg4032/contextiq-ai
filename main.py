@@ -1,7 +1,7 @@
 # main.py
 import concurrent.futures
 from dotenv import load_dotenv
-from utils.audio_processor import process_input
+from utils.audio_processor import process_input, cleanup_chunks
 from core.transcriber import transcribe_all
 from core.summarizer import summarize, generate_title
 from core.extractor import extract_all
@@ -23,6 +23,7 @@ def run_pipeline(source: str, language: str = "english") -> dict:
     engine = "Sarvam AI" if language == "hinglish" else "Groq Whisper-large-v3"
     print(f"\n✍️  Transcribing via {engine} ...")
     transcript = transcribe_all(chunks, language)
+    cleanup_chunks(chunks)
     print(f"    -> {len(transcript):,} characters transcribed")
     print(f"    -> Preview: {transcript[:200]} ...")
 

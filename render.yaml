@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: contextiq-ai
+    env: docker
+    plan: starter          # free tier will likely OOM on embedding model load; see README
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false

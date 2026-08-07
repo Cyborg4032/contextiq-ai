@@ -1,11 +1,14 @@
 import concurrent.futures
+import os
+from PIL import Image
 import streamlit as st
 from dotenv import load_dotenv
 
+logo = Image.open("assets/logo.png")
 # ── Page config must be first ─────────────────────────────────────────────────
 st.set_page_config(
     page_title="ContextIQ",
-    page_icon="🧠",
+    page_icon=logo,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -13,7 +16,7 @@ st.set_page_config(
 load_dotenv()
 
 # ── Lazy imports so Streamlit config runs first ───────────────────────────────
-from utils.audio_processor import process_input
+from utils.audio_processor import process_input, cleanup_chunks
 from core.transcriber import transcribe_all
 from core.summarizer import summarize, generate_title
 from core.extractor import extract_all
@@ -145,7 +148,34 @@ col_input, col_right = st.columns([1.6, 1], gap="large")
 
 with col_input:
     st.markdown('<div class="section-label">⬡ Source</div>', unsafe_allow_html=True)
-    source = st.text_input("source", placeholder="https://youtube.com/watch?v=...  or  /path/to/audio.mp3", label_visibility="collapsed")
+
+    input_mode = st.radio(
+        "input_mode",
+        options=["YouTube URL", "Upload File"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    source = None
+    if input_mode == "YouTube URL":
+        source = st.text_input(
+            "source", placeholder="https://youtube.com/watch?v=...",
+            label_visibility="collapsed",
+        )
+    else:
+        uploaded_file = st.file_uploader(
+            "uploaded_file", type=["mp3", "mp4", "wav", "m4a", "webm"],
+            label_visibility="collapsed",
+        )
+        if uploaded_file is not None:
+            # Persist the upload to disk so the existing local-file
+            # pipeline (convert_to_wav -> chunk_audio) can use it as-is.
+            os.makedirs("downloads", exist_ok=True)
+            saved_path = os.path.join("downloads", uploaded_file.name)
+            with open(saved_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            source = saved_path
+
     st.markdown('<div class="section-label">⬡ Language</div>', unsafe_allow_html=True)
     language = st.selectbox("language", options=["english", "hinglish"], label_visibility="collapsed")
     run_btn = st.button("▶  Analyze", use_container_width=True)
@@ -218,6 +248,7 @@ if run_btn and source:
         engine = "Sarvam AI" if language == "hinglish" else "Groq Whisper-large-v3"
         update(1, f"Got {len(chunks)} chunk(s). Transcribing via {engine}…")
         transcript = transcribe_all(chunks, language)
+        cleanup_chunks(chunks)
 
         update(2, f"Transcript ready — {len(transcript):,} chars. Running parallel analysis…")
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
@@ -258,7 +289,7 @@ if run_btn and source:
             unsafe_allow_html=True)
 
 elif run_btn and not source:
-    st.warning("Please enter a YouTube URL or file path first.")
+    st.warning("Please enter a YouTube URL or upload a file first.")
 
 # ── Results ───────────────────────────────────────────────────────────────────
 if st.session_state.result:
